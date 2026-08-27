@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v5
+-- TOOKIMEKI AUTO-FARM SERANGGA v6
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -11,7 +11,6 @@ local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Mencegah duplikasi GUI
 if CoreGui:FindFirstChild("TookimekiAutoFarm") then
     CoreGui.TookimekiAutoFarm:Destroy()
 end
@@ -235,15 +234,14 @@ end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (SMART STATE MACHINE)
+-- 4. LOGIKA AUTO-FARM (TRUE STATE MACHINE 1-CLICK)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
 
--- Variabel State Machine
-local lastSwingTime = 0
-local isMinigameActive = false
-local swingCooldown = 1.5 -- Jeda 1.5 detik per klik tombol hijau agar suara tidak looping
+-- Variabel State Machine Murni
+local systemState = "IDLE" -- Status: "IDLE", "WAITING", "IN_MINIGAME"
+local timeClicked = 0
 
 local function VirtualClick(button)
     if not button then return end
@@ -260,7 +258,7 @@ task.spawn(function()
         task.wait(0.1) 
         
         if autoFarmActive then
-            -- A. PASTIKAN JARING DIPEGANG
+            -- A. PASTIKAN JARING DIPEGANG TERUS
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -272,49 +270,58 @@ task.spawn(function()
             end
             
             -- B. PINDAI LAYAR
-            local insectFound = false
+            local insectFound = nil
             local catchBtnFound = nil
             
             for _, gui in pairs(PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
-                    -- Cari Minigame Serangga
-                    local insect = gui:FindFirstChild("Dragonfly", true) or 
-                                   gui:FindFirstChild("Butterfly", true) or 
-                                   gui:FindFirstChild("Frog", true)
-                    
-                    if insect and insect:IsA("GuiButton") and insect.Visible then
-                        insectFound = true
-                        VirtualClick(insect) -- Tangkap serangganya!
-                    end
-                    
-                    -- Cari Tombol Hijau
+                    -- 1. Deteksi Tombol Hijau
                     if not catchBtnFound then
                         local btn = gui:FindFirstChild("CatchButton", true)
                         if btn and btn:IsA("GuiButton") and btn.Visible then
                             catchBtnFound = btn
                         end
                     end
+                    
+                    -- 2. Deteksi Minigame Serangga
+                    if not insectFound then
+                        local insect = gui:FindFirstChild("Dragonfly", true) or 
+                                       gui:FindFirstChild("Butterfly", true) or 
+                                       gui:FindFirstChild("Frog", true)
+                        if insect and insect:IsA("GuiButton") and insect.Visible then
+                            insectFound = insect
+                        end
+                    end
+                    
                 end
             end
             
-            -- C. LOGIKA STATE MACHINE (Anti-Spam Suara)
+            -- C. EKSEKUSI LOGIKA STATE MACHINE (Tanpa Looping Suara)
             if insectFound then
-                isMinigameActive = true
-                lastSwingTime = os.clock() -- Tahan ayunan (Reset timer) selama minigame berlangsung
-            else
-                -- Jika tidak ada minigame, tapi sebelumnya aktif (Artinya minigame baru saja selesai)
-                if isMinigameActive then
-                    isMinigameActive = false
-                    lastSwingTime = os.clock() -- Beri jeda sejenak setelah minigame sebelum mengayun lagi
-                end
+                -- Status: Sedang di dalam minigame (Tangkapan sedang diproses)
+                systemState = "IN_MINIGAME"
+                VirtualClick(insectFound)
                 
-                -- Jika minigame sedang tidak aktif, dan tombol hijau muncul
-                if not isMinigameActive and catchBtnFound then
-                    -- Cek cooldown ayunan agar suara tidak spam (Batas 1.5 detik)
-                    if os.clock() - lastSwingTime >= swingCooldown then
+            else
+                -- Jika tidak ada serangga di layar
+                if systemState == "IN_MINIGAME" then
+                    -- Minigame baru saja hilang = Tangkapan Berhasil!
+                    systemState = "IDLE"
+                    task.wait(0.5) -- Jeda sebentar agar tidak langsung menembak lagi
+                    
+                elseif systemState == "WAITING" then
+                    -- Failsafe: Jika sudah diklik tapi serangganya kabur/gak muncul
+                    if os.clock() - timeClicked > 3 then
+                        systemState = "IDLE" -- Reset setelah 3 detik
+                    end
+                    
+                elseif systemState == "IDLE" then
+                    -- Siap menangkap: Jika tombol hijau muncul, klik SEKALI SAJA
+                    if catchBtnFound then
                         VirtualClick(catchBtnFound)
-                        lastSwingTime = os.clock() -- Catat waktu klik terakhir
+                        systemState = "WAITING" -- Kunci sistem agar tidak spam klik
+                        timeClicked = os.clock()
                     end
                 end
             end
@@ -328,6 +335,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     if autoFarmActive then
         ToggleBtn.Text = "AUTO FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
+        systemState = "IDLE" -- Reset status saat dinyalakan
     else
         ToggleBtn.Text = "AUTO FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
@@ -353,4 +361,4 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v5 (Smart Logic) Aktif!")
+print("Tookimeki Auto-Farm v6 (1-Click Logic) Aktif!")
