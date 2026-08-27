@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v11 (VIM BYPASS)
+-- TOOKIMEKI AUTO-FARM SERANGGA v13 (ULTIMATE STATE MACHINE)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,8 +7,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
-local VirtualInputManager = game:GetService("VirtualInputManager") -- Mesin Klik Fisik
-local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -110,53 +108,41 @@ Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 -- 2. SISTEM CUSTOM DRAG
 -- ==========================================
 local function MakeDraggable(guiObject)
-    local dragging = false
-    local dragInput, dragStart, startPos
-
+    local dragging, dragInput, dragStart, startPos
     guiObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if guiObject == MainFrame and ToggleBtn.IsHovered then return end 
             dragging = true
             dragStart = input.Position
             startPos = guiObject.Position 
-            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
-
     guiObject.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
-
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
             local targetX = startPos.X.Offset + delta.X
             local targetY = startPos.Y.Offset + delta.Y
-            
             local viewport = workspace.CurrentCamera.ViewportSize
             local apX, apY = guiObject.AnchorPoint.X, guiObject.AnchorPoint.Y
             local sizeX, sizeY = guiObject.AbsoluteSize.X, guiObject.AbsoluteSize.Y
-            
-            local minX = sizeX * apX
-            local maxX = viewport.X - sizeX * (1 - apX)
-            local minY = sizeY * apY
-            local maxY = viewport.Y - sizeY * (1 - apY)
-            
+            local minX, maxX = sizeX * apX, viewport.X - sizeX * (1 - apX)
+            local minY, maxY = sizeY * apY, viewport.Y - sizeY * (1 - apY)
             if viewport.X > 0 and viewport.Y > 0 then
                 targetX = math.clamp(targetX, minX, maxX)
                 targetY = math.clamp(targetY, minY, maxY)
             end
-            
             guiObject.Position = UDim2.new(0, targetX, 0, targetY)
         end
     end)
 end
-
 MakeDraggable(MainFrame)
 MakeDraggable(OpenBtn)
 
@@ -169,7 +155,6 @@ local isAnimating = false
 local function MaximizeGUI()
     if isAnimating then return end
     isAnimating = true
-
     local targetX = OpenBtn.Position.X.Offset + 45
     local targetY = OpenBtn.Position.Y.Offset + 50
     local viewport = workspace.CurrentCamera.ViewportSize
@@ -177,15 +162,12 @@ local function MaximizeGUI()
         targetX = math.clamp(targetX, 300, viewport.X)
         targetY = math.clamp(targetY, 55, viewport.Y - 55)
     end
-    
     TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)}):Play()
     task.wait(0.3)
-    
     OpenBtn.Visible = false
     MainFrame.Size = UDim2.new(0, 0, 0, 0)
     MainFrame.Position = UDim2.new(0, targetX, 0, targetY)
     MainFrame.Visible = true
-    
     TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 300, 0, 110)}):Play()
     task.wait(0.3)
     isAnimating = false
@@ -194,21 +176,17 @@ end
 local function MinimizeGUI()
     if isAnimating then return end
     isAnimating = true
-    
     local mousePos = UserInputService:GetMouseLocation()
     local viewport = workspace.CurrentCamera.ViewportSize
     local safeX = math.clamp(mousePos.X, 17.5, viewport.X - 17.5) 
     local safeY = math.clamp(mousePos.Y, 17.5, viewport.Y - 17.5)
     local targetPos = UDim2.new(0, safeX, 0, safeY)
-    
     TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 0, 0, 0), Position = targetPos}):Play()
     task.wait(0.3)
-    
     MainFrame.Visible = false
     OpenBtn.Position = targetPos
     OpenBtn.Size = UDim2.new(0, 0, 0, 0)
     OpenBtn.Visible = true
-    
     TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
     task.wait(0.3)
     isAnimating = false
@@ -225,50 +203,43 @@ OpenBtn.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if clickStart and clickPos then
             local delta = (input.Position - clickPos).Magnitude
-            if delta < 5 and (os.clock() - clickStart) < 0.5 then
-                task.spawn(MaximizeGUI)
-            end
+            if delta < 5 and (os.clock() - clickStart) < 0.5 then task.spawn(MaximizeGUI) end
             clickStart, clickPos = nil, nil
         end
     end
 end)
-
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (PHYSICAL VIM BYPASS)
+-- 4. LOGIKA AUTO-FARM (STATE MACHINE MURNI)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
 
--- Fungsi untuk mengkalkulasi koordinat dan mengirimkan klik fisik seolah-olah dari mouse asli
-local function PhysicalClick(guiObject)
-    if not guiObject then return end
-    
-    -- Kalkulasi Titik Tengah Tombol
-    local absPos = guiObject.AbsolutePosition
-    local absSize = guiObject.AbsoluteSize
-    
-    -- Mengambil Inset dari Topbar Roblox untuk akurasi sumbu Y
-    local inset = GuiService:GetGuiInset()
-    
-    local x = absPos.X + (absSize.X / 2)
-    local y = absPos.Y + (absSize.Y / 2) + inset.Y
-    
-    -- Simulasi Hardware: Mouse Ditekan (Mensimulasikan image_e4d799.png)
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
-    task.wait(0.05) -- Jeda mekanis
-    -- Simulasi Hardware: Mouse Dilepas
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+-- Status Mesin: "CARI_TOMBOL_HIJAU" atau "TUNGGU_MINIGAME"
+local currentState = "CARI_TOMBOL_HIJAU" 
+local timeWaitingStarted = 0
+
+-- Fungsi Nuke Clicker (Memicu seluruh event klik agar tidak meleset)
+local function VirtualClick(button)
+    if not button then return end
+    if getconnections then
+        pcall(function()
+            for _, connection in pairs(getconnections(button.MouseButton1Down)) do connection:Fire() end
+            for _, connection in pairs(getconnections(button.MouseButton1Click)) do connection:Fire() end
+            for _, connection in pairs(getconnections(button.MouseButton1Up)) do connection:Fire() end
+            for _, connection in pairs(getconnections(button.Activated)) do connection:Fire() end
+        end)
+    end
 end
 
--- LOOP UTAMA DENGAN STATE MACHINE 1-CLICK
+-- LOOP UTAMA (Memindai 10x per detik)
 task.spawn(function()
     while loopRunning do
         task.wait(0.1) 
         
         if autoFarmActive then
-            -- A. PASTIKAN JARING DIPEGANG TERUS
+            -- A. PASTIKAN JARING SELALU DIPEGANG
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -286,13 +257,7 @@ task.spawn(function()
             for _, gui in pairs(PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
-                    if not catchBtnFound then
-                        local btn = gui:FindFirstChild("CatchButton", true)
-                        if btn and btn:IsA("GuiButton") and btn.Visible then
-                            catchBtnFound = btn
-                        end
-                    end
-                    
+                    -- Cari Serangga
                     if not insectFound then
                         local insect = gui:FindFirstChild("Dragonfly", true) or 
                                        gui:FindFirstChild("Butterfly", true) or 
@@ -302,22 +267,41 @@ task.spawn(function()
                         end
                     end
                     
+                    -- Cari Tombol Hijau
+                    if not catchBtnFound then
+                        local btn = gui:FindFirstChild("CatchButton", true)
+                        if btn and btn:IsA("GuiButton") and btn.Visible then
+                            catchBtnFound = btn
+                        end
+                    end
                 end
             end
             
-            -- C. EKSEKUSI KLIK FISIK (VIM)
-            if insectFound then
-                -- Jika serangga di minigame muncul, klik fisiknya
-                PhysicalClick(insectFound)
-                task.wait(0.5) -- Jeda setelah menangkap agar GUI sempat tertutup
-            else
+            -- C. EKSEKUSI BERDASARKAN STATUS (STATE MACHINE)
+            if currentState == "CARI_TOMBOL_HIJAU" then
+                -- Jika tombol hijau muncul, klik SEKALI dan ganti status!
                 if catchBtnFound then
-                    -- Klik fisik tombol hijau
-                    PhysicalClick(catchBtnFound)
+                    VirtualClick(catchBtnFound)
+                    currentState = "TUNGGU_MINIGAME"
+                    timeWaitingStarted = os.clock()
+                end
+                
+            elseif currentState == "TUNGGU_MINIGAME" then
+                -- Dalam status ini, skrip MENGABAIKAN tombol hijau sepenuhnya (Tidak akan looping)
+                
+                if insectFound then
+                    -- Serangga muncul! Tangkap!
+                    VirtualClick(insectFound)
                     
-                    -- Kunci skrip selama 2 detik agar tidak spamming tombol hijau yang sama,
-                    -- memberi waktu minigame capung untuk muncul di layar.
-                    task.wait(2)
+                    -- Setelah berhasil ditangkap, kembali ke status awal untuk mencari tombol hijau lagi
+                    currentState = "CARI_TOMBOL_HIJAU"
+                    task.wait(0.5) -- Jeda istirahat agar tidak terlalu agresif
+                else
+                    -- FAILSAFE: Jika skrip sudah menunggu selama 6 detik tapi serangga tidak muncul
+                    -- (Mungkin karena nge-bug atau serangganya kabur), kembalikan status ke awal.
+                    if os.clock() - timeWaitingStarted > 6 then
+                        currentState = "CARI_TOMBOL_HIJAU"
+                    end
                 end
             end
             
@@ -330,6 +314,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     if autoFarmActive then
         ToggleBtn.Text = "AUTO FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
+        currentState = "CARI_TOMBOL_HIJAU" -- Pastikan status ter-reset saat dihidupkan
     else
         ToggleBtn.Text = "AUTO FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
@@ -344,15 +329,8 @@ end)
 CloseBtn.MouseButton1Click:Connect(function()
     loopRunning = false 
     autoFarmActive = false
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "Auto-Farm",
-            Text = "Script ditutup.",
-            Icon = "rbxassetid://96528531592202",
-            Duration = 3,
-        })
-    end)
+    pcall(function() StarterGui:SetCore("SendNotification", {Title="Auto-Farm", Text="Script ditutup.", Duration=3}) end)
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v11 (Physical VIM Bypass) Aktif!")
+print("Tookimeki Auto-Farm v13 (Ultimate State Machine) Aktif!")
