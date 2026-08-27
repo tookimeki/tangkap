@@ -1,15 +1,96 @@
 -- ==========================================
--- AUTO-FARM SERANGGA (Versi Dasar)
+-- TOOKIMEKI AUTO-FARM SERANGGA v1
 -- ==========================================
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Fungsi virtual clicker menggunakan metode getconnections (Khusus Executor)
+-- Mencegah duplikasi GUI
+if CoreGui:FindFirstChild("TookimekiAutoFarm") then
+    CoreGui.TookimekiAutoFarm:Destroy()
+end
+
+-- 1. MEMBUAT GUI UTAMA
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TookimekiAutoFarm"
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 100)
+MainFrame.Position = UDim2.new(0.5, -125, 0.8, -50) -- Muncul di agak bawah layar
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "Auto-Farm - by tookimeki"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = MainFrame
+
+local Separator = Instance.new("Frame")
+Separator.Size = UDim2.new(1, -20, 0, 1)
+Separator.Position = UDim2.new(0, 10, 0, 30)
+Separator.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+Separator.BorderSizePixel = 0
+Separator.Parent = MainFrame
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 200, 0, 35)
+ToggleBtn.Position = UDim2.new(0.5, -100, 0, 45)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Default Merah (OFF)
+ToggleBtn.Text = "AUTO FARM: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 14
+ToggleBtn.Parent = MainFrame
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+-- FUNGSI DRAG (Agar GUI bisa digeser)
+local function MakeDraggable(guiObject)
+    local dragging, dragStart, startPos
+
+    guiObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
+        end
+    end)
+    guiObject.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+MakeDraggable(MainFrame)
+
+-- ==========================================
+-- LOGIKA AUTO-FARM
+-- ==========================================
+local autoFarmActive = false
+
+-- Fungsi Virtual Clicker (Mengeklik tombol GUI secara paksa)
 local function VirtualClick(button)
     if not button then return end
-    
-    -- Mencoba memicu event klik kiri
     if getconnections then
         for _, connection in pairs(getconnections(button.MouseButton1Click)) do
             connection:Fire()
@@ -20,33 +101,84 @@ local function VirtualClick(button)
     end
 end
 
--- Sistem Radar: Memantau setiap GUI baru yang masuk ke layar Anda
+-- Sistem Radar: Memantau GUI Minigame
 PlayerGui.ChildAdded:Connect(function(gui)
-    
-    -- 1. Deteksi Tombol Pemicu Awal
-    if gui.Name == "DragonflyCatchGui" then
-        -- Menunggu tombol CatchButton muncul (maksimal 3 detik)
-        local catchBtn = gui:WaitForChild("CatchButton", 3)
+    if not autoFarmActive then return end -- Abaikan jika Auto-Farm sedang OFF
+
+    -- Deteksi CatchGui (Trigger Awal)
+    if string.find(gui.Name, "CatchGui") then
+        local catchBtn = gui:WaitForChild("CatchButton", 2)
         if catchBtn then
-            task.wait(0.1) -- Jeda sangat singkat agar tidak dicurigai server
+            task.wait(0.1)
             VirtualClick(catchBtn)
         end
     end
     
-    -- 2. Deteksi Minigame Utama
-    if gui.Name == "DragonflyMinigameGui" then
-        local gameArea = gui:WaitForChild("GameArea", 3)
+    -- Deteksi MinigameGui (Capung, Kupu-kupu, Kodok)
+    if string.find(gui.Name, "MinigameGui") then
+        local gameArea = gui:WaitForChild("GameArea", 2)
         if gameArea then
-            -- Mencari tombol capungnya
-            local dragonflyBtn = gameArea:WaitForChild("Dragonfly", 3)
-            if dragonflyBtn then
-                task.wait(0.2) -- Menunggu bar hijau (TimerBg) ter-load
-                VirtualClick(dragonflyBtn)
-                print("[Auto-Farm]: Berhasil menangkap Capung!")
+            -- Mencari tombol serangga berdasarkan tipe
+            local insectBtn = gameArea:FindFirstChild("Dragonfly") or 
+                              gameArea:FindFirstChild("Butterfly") or 
+                              gameArea:FindFirstChild("Frog")
+                              
+            if insectBtn then
+                task.wait(0.2)
+                VirtualClick(insectBtn)
             end
         end
     end
-    
 end)
 
-print("Sistem Auto-Catch Serangga Aktif!")
+-- Loop Utama: Memegang dan Mengayunkan Jaring
+task.spawn(function()
+    while task.wait(0.5) do -- Eksekusi setiap setengah detik
+        if autoFarmActive then
+            local character = LocalPlayer.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                
+                -- Mencari Jaring di tas atau yang sedang dipegang
+                local jaring = LocalPlayer.Backpack:FindFirstChild("Jaring") or character:FindFirstChild("Jaring")
+                
+                if jaring then
+                    -- Jika jaring belum dipegang, paksa untuk dipegang
+                    if jaring.Parent ~= character then
+                        humanoid:EquipTool(jaring)
+                        task.wait(0.2) -- Jeda sebentar agar animasi equip selesai
+                    end
+                    
+                    -- Ayunkan jaring secara otomatis
+                    jaring:Activate()
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- LOGIKA TOMBOL TOGGLE
+-- ==========================================
+ToggleBtn.MouseButton1Click:Connect(function()
+    autoFarmActive = not autoFarmActive -- Membalikkan status
+    
+    if autoFarmActive then
+        ToggleBtn.Text = "AUTO FARM: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Berubah Hijau
+    else
+        ToggleBtn.Text = "AUTO FARM: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Berubah Merah
+        
+        -- Lepas jaring saat dimatikan (opsional)
+        local character = LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:UnequipTools()
+            end
+        end
+    end
+end)
+
+print("Sistem Tookimeki Auto-Farm Siap Digunakan!")
