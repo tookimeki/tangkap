@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v14 (PRIORITY LOGIC)
+-- TOOKIMEKI AUTO-FARM SERANGGA v15 (ULTIMATE BYPASS)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,6 +7,8 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -211,77 +213,80 @@ end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (STABIL & SIMPEL)
+-- 4. LOGIKA AUTO-FARM (VIM PHYSICAL CLICKER)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
-local lastCatchClickTime = 0
+local lastSwingTime = 0
 
--- Mengembalikan fungsi VirtualClick yang TERBUKTI AMAN dari versi awal
-local function VirtualClick(button)
-    if not button then return end
-    if getconnections then
-        for _, connection in pairs(getconnections(button.MouseButton1Click)) do 
-            connection:Fire() 
-        end
-        for _, connection in pairs(getconnections(button.MouseButton1Down)) do 
-            connection:Fire() 
-        end
-    end
+-- Mesin Klik Fisik (Memalsukan sentuhan mouse manusia)
+local function PhysicalClick(guiObject)
+    if not guiObject then return end
+    
+    -- Hitung kordinat tengah gambar
+    local x = guiObject.AbsolutePosition.X + (guiObject.AbsoluteSize.X / 2)
+    local y = guiObject.AbsolutePosition.Y + (guiObject.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
+    
+    -- Perintahkan mouse gaib untuk mengeklik koordinat tersebut
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
+    task.wait(0.05)
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
 end
 
--- LOOP UTAMA
 task.spawn(function()
     while loopRunning do
         task.wait(0.1) 
         
         if autoFarmActive then
-            -- A. EQUIP JARING
+            -- A. PASTIKAN JARING DIPEGANG
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 local jaring = LocalPlayer.Backpack:FindFirstChild("Jaring") or character:FindFirstChild("Jaring")
+                
                 if jaring and jaring.Parent ~= character then
                     if humanoid then humanoid:EquipTool(jaring) end
                 end
             end
             
-            -- B. PINDAI LAYAR
-            local isMinigameActive = false
+            -- B. PINDAI LAYAR (Mendeteksi ImageLabel)
             local insectBtn = nil
             local catchBtn = nil
             
             for _, gui in pairs(PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
-                    -- Cari Serangga (Prioritas 1)
-                    local insect = gui:FindFirstChild("Dragonfly", true) or 
-                                   gui:FindFirstChild("Butterfly", true) or 
-                                   gui:FindFirstChild("Frog", true)
-                                   
-                    if insect and insect:IsA("GuiButton") and insect.Visible then
-                        insectBtn = insect
-                        isMinigameActive = true
+                    -- Cari Serangga (PRIORITAS UTAMA)
+                    -- Perhatikan: Kita sekarang mengecek IsA("GuiObject") agar ImageLabel juga terdeteksi!
+                    local bug = gui:FindFirstChild("Dragonfly", true) or 
+                                gui:FindFirstChild("Butterfly", true) or 
+                                gui:FindFirstChild("Frog", true)
+                                
+                    if bug and bug:IsA("GuiObject") and bug.Visible and bug.AbsoluteSize.X > 0 then
+                        insectBtn = bug
                     end
                     
-                    -- Cari Tombol Hijau (Prioritas 2)
-                    local btn = gui:FindFirstChild("CatchButton", true)
-                    if btn and btn:IsA("GuiButton") and btn.Visible then
-                        catchBtn = btn
+                    -- Cari Tombol Hijau
+                    local cb = gui:FindFirstChild("CatchButton", true)
+                    if cb and cb:IsA("GuiObject") and cb.Visible and cb.AbsoluteSize.X > 0 then
+                        catchBtn = cb
                     end
+                    
                 end
             end
             
             -- C. EKSEKUSI BERDASARKAN PRIORITAS
-            if isMinigameActive and insectBtn then
-                -- Jika ada serangga, hiraukan tombol hijau, FOKUS TANGKAP!
-                VirtualClick(insectBtn)
-            elseif catchBtn and not isMinigameActive then
-                -- Jika TIDAK ADA serangga di layar, tapi tombol hijau muncul
-                -- Cek jeda 1.5 detik agar suara tidak spam
-                if os.clock() - lastCatchClickTime > 1.5 then
-                    VirtualClick(catchBtn)
-                    lastCatchClickTime = os.clock()
+            if insectBtn then
+                -- 1. Jika Serangga Muncul: Hajar serangganya! Abaikan tombol jaring.
+                PhysicalClick(insectBtn)
+                task.wait(0.5) -- Beri waktu setengah detik agar GUI minigame sempat tertutup
+                
+            elseif catchBtn then
+                -- 2. Jika Tidak Ada Serangga: Klik tombol jaring hijau.
+                -- Syarat: Hanya klik setiap 2 detik agar tidak spam/suara nyangkut.
+                if os.clock() - lastSwingTime > 2 then
+                    PhysicalClick(catchBtn)
+                    lastSwingTime = os.clock()
                 end
             end
             
@@ -294,6 +299,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     if autoFarmActive then
         ToggleBtn.Text = "AUTO FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
+        lastSwingTime = 0 -- Reset timer agar langsung mengayun
     else
         ToggleBtn.Text = "AUTO FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
@@ -312,4 +318,4 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v14 (Priority Logic) Aktif!")
+print("Tookimeki Auto-Farm v15 (Ultimate VIM Bypass) Aktif!")
