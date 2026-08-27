@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v4
+-- TOOKIMEKI AUTO-FARM SERANGGA v5
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -235,10 +235,15 @@ end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (GLOBAL SCANNER)
+-- 4. LOGIKA AUTO-FARM (SMART STATE MACHINE)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
+
+-- Variabel State Machine
+local lastSwingTime = 0
+local isMinigameActive = false
+local swingCooldown = 1.5 -- Jeda 1.5 detik per klik tombol hijau agar suara tidak looping
 
 local function VirtualClick(button)
     if not button then return end
@@ -249,21 +254,13 @@ local function VirtualClick(button)
     end
 end
 
--- Daftar nama tombol yang akan dihajar oleh script
-local targetButtons = {
-    "CatchButton", -- Asumsi ini nama tombol hijaunya atau tombol pemicu minigame
-    "Dragonfly",
-    "Butterfly",
-    "Frog"
-}
-
 -- LOOP UTAMA
 task.spawn(function()
     while loopRunning do
-        task.wait(0.2) -- Loop berjalan 5x per detik (Cepat dan Anti-Lag)
+        task.wait(0.1) 
         
         if autoFarmActive then
-            -- A. PASTIKAN JARING DIPEGANG TERUS
+            -- A. PASTIKAN JARING DIPEGANG
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -274,19 +271,54 @@ task.spawn(function()
                 end
             end
             
-            -- B. SCAN GLOBAL SELURUH LAYAR (Mencari tombol hijau & minigame)
+            -- B. PINDAI LAYAR
+            local insectFound = false
+            local catchBtnFound = nil
+            
             for _, gui in pairs(PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
-                    for _, targetName in ipairs(targetButtons) do
-                        -- Mencari secara mendalam (true) tanpa peduli nama foldernya
-                        local btn = gui:FindFirstChild(targetName, true)
-                        
+                    
+                    -- Cari Minigame Serangga
+                    local insect = gui:FindFirstChild("Dragonfly", true) or 
+                                   gui:FindFirstChild("Butterfly", true) or 
+                                   gui:FindFirstChild("Frog", true)
+                    
+                    if insect and insect:IsA("GuiButton") and insect.Visible then
+                        insectFound = true
+                        VirtualClick(insect) -- Tangkap serangganya!
+                    end
+                    
+                    -- Cari Tombol Hijau
+                    if not catchBtnFound then
+                        local btn = gui:FindFirstChild("CatchButton", true)
                         if btn and btn:IsA("GuiButton") and btn.Visible then
-                            VirtualClick(btn)
+                            catchBtnFound = btn
                         end
                     end
                 end
             end
+            
+            -- C. LOGIKA STATE MACHINE (Anti-Spam Suara)
+            if insectFound then
+                isMinigameActive = true
+                lastSwingTime = os.clock() -- Tahan ayunan (Reset timer) selama minigame berlangsung
+            else
+                -- Jika tidak ada minigame, tapi sebelumnya aktif (Artinya minigame baru saja selesai)
+                if isMinigameActive then
+                    isMinigameActive = false
+                    lastSwingTime = os.clock() -- Beri jeda sejenak setelah minigame sebelum mengayun lagi
+                end
+                
+                -- Jika minigame sedang tidak aktif, dan tombol hijau muncul
+                if not isMinigameActive and catchBtnFound then
+                    -- Cek cooldown ayunan agar suara tidak spam (Batas 1.5 detik)
+                    if os.clock() - lastSwingTime >= swingCooldown then
+                        VirtualClick(catchBtnFound)
+                        lastSwingTime = os.clock() -- Catat waktu klik terakhir
+                    end
+                end
+            end
+            
         end
     end
 end)
@@ -321,4 +353,4 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v4 Aktif!")
+print("Tookimeki Auto-Farm v5 (Smart Logic) Aktif!")
