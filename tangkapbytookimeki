@@ -1,11 +1,10 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v2
+-- TOOKIMEKI AUTO-FARM SERANGGA v3
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local VirtualUser = game:GetService("VirtualUser")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 
@@ -18,7 +17,7 @@ if CoreGui:FindFirstChild("TookimekiAutoFarm") then
 end
 
 -- ==========================================
--- 1. MEMBANGUN UI PREMIUM (Style AFK v11)
+-- 1. MEMBANGUN UI PREMIUM
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TookimekiAutoFarm"
@@ -83,7 +82,6 @@ Separator.BackgroundTransparency = 0.8
 Separator.BorderSizePixel = 0
 Separator.Parent = MainFrame
 
--- Tombol Sakelar Utama
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(1, -40, 0, 40)
 ToggleBtn.Position = UDim2.new(0, 20, 0, 55)
@@ -95,7 +93,6 @@ ToggleBtn.TextSize = 14
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
--- Logo Kecil Tookimeki
 local OpenBtn = Instance.new("ImageButton")
 OpenBtn.Size = UDim2.new(0, 0, 0, 0) 
 OpenBtn.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -117,7 +114,7 @@ local function MakeDraggable(guiObject)
 
     guiObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if guiObject == MainFrame and ToggleBtn.IsHovered then return end -- Hindari bentrok drag vs toggle
+            if guiObject == MainFrame and ToggleBtn.IsHovered then return end 
             dragging = true
             dragStart = input.Position
             startPos = guiObject.Position 
@@ -247,11 +244,12 @@ end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (FIXED CLICK)
+-- 4. LOGIKA AUTO-FARM (ACTIVE SCANNER)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
 
+-- Peningkatan fungsi Virtual Clicker (Termasuk dukungan .Activated)
 local function VirtualClick(button)
     if not button then return end
     if getconnections then
@@ -261,55 +259,52 @@ local function VirtualClick(button)
         for _, connection in pairs(getconnections(button.MouseButton1Down)) do
             connection:Fire()
         end
+        for _, connection in pairs(getconnections(button.Activated)) do
+            connection:Fire()
+        end
     end
 end
 
-PlayerGui.ChildAdded:Connect(function(gui)
-    if not autoFarmActive then return end 
-
-    if string.find(gui.Name, "CatchGui") then
-        local catchBtn = gui:WaitForChild("CatchButton", 2)
-        if catchBtn then
-            task.wait(0.1)
-            VirtualClick(catchBtn)
-        end
-    end
-    
-    if string.find(gui.Name, "MinigameGui") then
-        local gameArea = gui:WaitForChild("GameArea", 2)
-        if gameArea then
-            local insectBtn = gameArea:FindFirstChild("Dragonfly") or 
-                              gameArea:FindFirstChild("Butterfly") or 
-                              gameArea:FindFirstChild("Frog")
-            if insectBtn then
-                task.wait(0.2)
-                VirtualClick(insectBtn)
-            end
-        end
-    end
-end)
-
--- LOOP AYUNAN JARING MENGGUNAKAN VIRTUAL USER
+-- LOOP UTAMA (Memindai layar 10 kali per detik)
 task.spawn(function()
     while loopRunning do
-        task.wait(0.5) 
+        task.wait(0.1) -- Fast Loop Scanner
+        
         if autoFarmActive then
+            -- A. PASTIKAN JARING DIPEGANG
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 local jaring = LocalPlayer.Backpack:FindFirstChild("Jaring") or character:FindFirstChild("Jaring")
                 
-                if jaring then
-                    if jaring.Parent ~= character then
-                        humanoid:EquipTool(jaring)
-                        task.wait(0.2) 
-                    end
-                    
-                    -- BUKAN MENGGUNAKAN :Activate(), TAPI SIMULASI KLIK MOUSE ASLI
-                    VirtualUser:Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                    task.wait(0.1)
-                    VirtualUser:Button1Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                if jaring and jaring.Parent ~= character then
+                    if humanoid then humanoid:EquipTool(jaring) end
                 end
+            end
+            
+            -- B. PINDAI SELURUH PLAYERGUI
+            for _, gui in pairs(PlayerGui:GetChildren()) do
+                
+                -- Deteksi CatchGui dan Tombol Hijau
+                if string.find(gui.Name, "CatchGui") then
+                    -- Cari secara mendalam (true) barangkali lokasinya bersarang
+                    local catchBtn = gui:FindFirstChild("CatchButton", true)
+                    -- Pastikan tombolnya ada dan sedang terlihat (Visible) di layar
+                    if catchBtn and catchBtn:IsA("GuiButton") and catchBtn.Visible then
+                        VirtualClick(catchBtn)
+                    end
+                end
+                
+                -- Deteksi MinigameGui
+                if string.find(gui.Name, "MinigameGui") then
+                    local insect = gui:FindFirstChild("Dragonfly", true) or 
+                                   gui:FindFirstChild("Butterfly", true) or 
+                                   gui:FindFirstChild("Frog", true)
+                    if insect and insect:IsA("GuiButton") and insect.Visible then
+                        VirtualClick(insect)
+                    end
+                end
+                
             end
         end
     end
@@ -332,7 +327,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    loopRunning = false -- Matikan loop ayunan jaring
+    loopRunning = false -- Memutus loop agar tidak memory leak
     autoFarmActive = false
     pcall(function()
         StarterGui:SetCore("SendNotification", {
@@ -345,4 +340,4 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v2 Aktif!")
+print("Tookimeki Auto-Farm v3 Aktif!")
