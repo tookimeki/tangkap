@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v9
+-- TOOKIMEKI AUTO-FARM SERANGGA v10
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -234,10 +234,14 @@ end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (TAG & HIDE METHOD)
+-- 4. LOGIKA AUTO-FARM (VIRTUAL LOCK LOGIC)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
+
+-- Variabel Pengunci
+local isWaitingForMinigame = false
+local lastLockTime = 0
 
 local function VirtualClick(button)
     if not button then return end
@@ -254,7 +258,7 @@ task.spawn(function()
         task.wait(0.1) 
         
         if autoFarmActive then
-            -- A. PASTIKAN JARING DIPEGANG TERUS
+            -- A. EQUIP JARING
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -265,32 +269,54 @@ task.spawn(function()
                 end
             end
             
-            -- B. PINDAI LAYAR (Mencari dan Melumpuhkan Tombol)
+            -- B. SCAN LAYAR
+            local insectFound = nil
+            local catchBtnFound = nil
+            
             for _, gui in pairs(PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
-                    -- 1. Deteksi Minigame (Prioritas Utama)
-                    local insect = gui:FindFirstChild("Dragonfly", true) or 
-                                   gui:FindFirstChild("Butterfly", true) or 
-                                   gui:FindFirstChild("Frog", true)
-                                   
-                    if insect and insect:IsA("GuiButton") and insect.Visible then
-                        VirtualClick(insect)
-                        -- ANTI-LOOP: Ubah nama dan sembunyikan gambar serangga
-                        insect.Name = "Captured_Insect"
-                        insect.Visible = false 
+                    -- Cari Serangga
+                    if not insectFound then
+                        local insect = gui:FindFirstChild("Dragonfly", true) or 
+                                       gui:FindFirstChild("Butterfly", true) or 
+                                       gui:FindFirstChild("Frog", true)
+                        if insect and insect:IsA("GuiButton") and insect.Visible then
+                            insectFound = insect
+                        end
                     end
                     
-                    -- 2. Deteksi Tombol Hijau
-                    local btn = gui:FindFirstChild("CatchButton", true)
-                    
-                    if btn and btn:IsA("GuiButton") and btn.Visible then
-                        VirtualClick(btn)
-                        -- ANTI-LOOP BRUTAL: Ubah nama tombol hijau agar tidak terdeteksi lagi oleh radar
-                        btn.Name = "CatchButton_Clicked"
-                        btn.Visible = false 
+                    -- Cari Tombol Hijau Jaring
+                    if not catchBtnFound then
+                        local btn = gui:FindFirstChild("CatchButton", true)
+                        if btn and btn:IsA("GuiButton") and btn.Visible then
+                            catchBtnFound = btn
+                        end
                     end
                     
+                end
+            end
+            
+            -- C. LOGIKA KUNCI VIRTUAL
+            if insectFound then
+                -- Jika serangga muncul, klik!
+                VirtualClick(insectFound)
+                -- Langsung BUKA KUNCI karena proses tangkap sudah selesai
+                isWaitingForMinigame = false 
+                
+            elseif catchBtnFound then
+                -- Jika tombol hijau muncul, cek apakah kuncinya terbuka
+                if not isWaitingForMinigame then
+                    VirtualClick(catchBtnFound)
+                    -- KUNCI SISTEM agar tidak diklik lagi saat tombolnya menggelap
+                    isWaitingForMinigame = true 
+                    lastLockTime = os.clock()
+                else
+                    -- Failsafe: Jika sistem terkunci lebih dari 4 detik (misal serangga gagal muncul),
+                    -- buka kembali kuncinya secara paksa agar tidak macet selamanya.
+                    if os.clock() - lastLockTime > 4 then
+                        isWaitingForMinigame = false
+                    end
                 end
             end
             
@@ -303,6 +329,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     if autoFarmActive then
         ToggleBtn.Text = "AUTO FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
+        isWaitingForMinigame = false -- Reset kunci saat dinyalakan
     else
         ToggleBtn.Text = "AUTO FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
@@ -328,4 +355,4 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v9 (Tag & Hide) Aktif!")
+print("Tookimeki Auto-Farm v10 (Perfect Sync) Aktif!")
