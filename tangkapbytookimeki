@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v15 (ULTIMATE BYPASS)
+-- TOOKIMEKI AUTO-FARM SERANGGA v6
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,8 +7,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -110,41 +108,53 @@ Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 -- 2. SISTEM CUSTOM DRAG
 -- ==========================================
 local function MakeDraggable(guiObject)
-    local dragging, dragInput, dragStart, startPos
+    local dragging = false
+    local dragInput, dragStart, startPos
+
     guiObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if guiObject == MainFrame and ToggleBtn.IsHovered then return end 
             dragging = true
             dragStart = input.Position
             startPos = guiObject.Position 
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
+
     guiObject.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
+
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
             local targetX = startPos.X.Offset + delta.X
             local targetY = startPos.Y.Offset + delta.Y
+            
             local viewport = workspace.CurrentCamera.ViewportSize
             local apX, apY = guiObject.AnchorPoint.X, guiObject.AnchorPoint.Y
             local sizeX, sizeY = guiObject.AbsoluteSize.X, guiObject.AbsoluteSize.Y
-            local minX, maxX = sizeX * apX, viewport.X - sizeX * (1 - apX)
-            local minY, maxY = sizeY * apY, viewport.Y - sizeY * (1 - apY)
+            
+            local minX = sizeX * apX
+            local maxX = viewport.X - sizeX * (1 - apX)
+            local minY = sizeY * apY
+            local maxY = viewport.Y - sizeY * (1 - apY)
+            
             if viewport.X > 0 and viewport.Y > 0 then
                 targetX = math.clamp(targetX, minX, maxX)
                 targetY = math.clamp(targetY, minY, maxY)
             end
+            
             guiObject.Position = UDim2.new(0, targetX, 0, targetY)
         end
     end)
 end
+
 MakeDraggable(MainFrame)
 MakeDraggable(OpenBtn)
 
@@ -157,6 +167,7 @@ local isAnimating = false
 local function MaximizeGUI()
     if isAnimating then return end
     isAnimating = true
+
     local targetX = OpenBtn.Position.X.Offset + 45
     local targetY = OpenBtn.Position.Y.Offset + 50
     local viewport = workspace.CurrentCamera.ViewportSize
@@ -164,12 +175,15 @@ local function MaximizeGUI()
         targetX = math.clamp(targetX, 300, viewport.X)
         targetY = math.clamp(targetY, 55, viewport.Y - 55)
     end
+    
     TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)}):Play()
     task.wait(0.3)
+    
     OpenBtn.Visible = false
     MainFrame.Size = UDim2.new(0, 0, 0, 0)
     MainFrame.Position = UDim2.new(0, targetX, 0, targetY)
     MainFrame.Visible = true
+    
     TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 300, 0, 110)}):Play()
     task.wait(0.3)
     isAnimating = false
@@ -178,17 +192,21 @@ end
 local function MinimizeGUI()
     if isAnimating then return end
     isAnimating = true
+    
     local mousePos = UserInputService:GetMouseLocation()
     local viewport = workspace.CurrentCamera.ViewportSize
     local safeX = math.clamp(mousePos.X, 17.5, viewport.X - 17.5) 
     local safeY = math.clamp(mousePos.Y, 17.5, viewport.Y - 17.5)
     local targetPos = UDim2.new(0, safeX, 0, safeY)
+    
     TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 0, 0, 0), Position = targetPos}):Play()
     task.wait(0.3)
+    
     MainFrame.Visible = false
     OpenBtn.Position = targetPos
     OpenBtn.Size = UDim2.new(0, 0, 0, 0)
     OpenBtn.Visible = true
+    
     TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
     task.wait(0.3)
     isAnimating = false
@@ -205,40 +223,42 @@ OpenBtn.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if clickStart and clickPos then
             local delta = (input.Position - clickPos).Magnitude
-            if delta < 5 and (os.clock() - clickStart) < 0.5 then task.spawn(MaximizeGUI) end
+            if delta < 5 and (os.clock() - clickStart) < 0.5 then
+                task.spawn(MaximizeGUI)
+            end
             clickStart, clickPos = nil, nil
         end
     end
 end)
+
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (VIM PHYSICAL CLICKER)
+-- 4. LOGIKA AUTO-FARM (TRUE STATE MACHINE 1-CLICK)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
-local lastSwingTime = 0
 
--- Mesin Klik Fisik (Memalsukan sentuhan mouse manusia)
-local function PhysicalClick(guiObject)
-    if not guiObject then return end
-    
-    -- Hitung kordinat tengah gambar
-    local x = guiObject.AbsolutePosition.X + (guiObject.AbsoluteSize.X / 2)
-    local y = guiObject.AbsolutePosition.Y + (guiObject.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
-    
-    -- Perintahkan mouse gaib untuk mengeklik koordinat tersebut
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
-    task.wait(0.05)
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+-- Variabel State Machine Murni
+local systemState = "IDLE" -- Status: "IDLE", "WAITING", "IN_MINIGAME"
+local timeClicked = 0
+
+local function VirtualClick(button)
+    if not button then return end
+    if getconnections then
+        for _, connection in pairs(getconnections(button.MouseButton1Click)) do connection:Fire() end
+        for _, connection in pairs(getconnections(button.MouseButton1Down)) do connection:Fire() end
+        for _, connection in pairs(getconnections(button.Activated)) do connection:Fire() end
+    end
 end
 
+-- LOOP UTAMA
 task.spawn(function()
     while loopRunning do
         task.wait(0.1) 
         
         if autoFarmActive then
-            -- A. PASTIKAN JARING DIPEGANG
+            -- A. PASTIKAN JARING DIPEGANG TERUS
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -249,44 +269,60 @@ task.spawn(function()
                 end
             end
             
-            -- B. PINDAI LAYAR (Mendeteksi ImageLabel)
-            local insectBtn = nil
-            local catchBtn = nil
+            -- B. PINDAI LAYAR
+            local insectFound = nil
+            local catchBtnFound = nil
             
             for _, gui in pairs(PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
-                    -- Cari Serangga (PRIORITAS UTAMA)
-                    -- Perhatikan: Kita sekarang mengecek IsA("GuiObject") agar ImageLabel juga terdeteksi!
-                    local bug = gui:FindFirstChild("Dragonfly", true) or 
-                                gui:FindFirstChild("Butterfly", true) or 
-                                gui:FindFirstChild("Frog", true)
-                                
-                    if bug and bug:IsA("GuiObject") and bug.Visible and bug.AbsoluteSize.X > 0 then
-                        insectBtn = bug
+                    -- 1. Deteksi Tombol Hijau
+                    if not catchBtnFound then
+                        local btn = gui:FindFirstChild("CatchButton", true)
+                        if btn and btn:IsA("GuiButton") and btn.Visible then
+                            catchBtnFound = btn
+                        end
                     end
                     
-                    -- Cari Tombol Hijau
-                    local cb = gui:FindFirstChild("CatchButton", true)
-                    if cb and cb:IsA("GuiObject") and cb.Visible and cb.AbsoluteSize.X > 0 then
-                        catchBtn = cb
+                    -- 2. Deteksi Minigame Serangga
+                    if not insectFound then
+                        local insect = gui:FindFirstChild("Dragonfly", true) or 
+                                       gui:FindFirstChild("Butterfly", true) or 
+                                       gui:FindFirstChild("Frog", true)
+                        if insect and insect:IsA("GuiButton") and insect.Visible then
+                            insectFound = insect
+                        end
                     end
                     
                 end
             end
             
-            -- C. EKSEKUSI BERDASARKAN PRIORITAS
-            if insectBtn then
-                -- 1. Jika Serangga Muncul: Hajar serangganya! Abaikan tombol jaring.
-                PhysicalClick(insectBtn)
-                task.wait(0.5) -- Beri waktu setengah detik agar GUI minigame sempat tertutup
+            -- C. EKSEKUSI LOGIKA STATE MACHINE (Tanpa Looping Suara)
+            if insectFound then
+                -- Status: Sedang di dalam minigame (Tangkapan sedang diproses)
+                systemState = "IN_MINIGAME"
+                VirtualClick(insectFound)
                 
-            elseif catchBtn then
-                -- 2. Jika Tidak Ada Serangga: Klik tombol jaring hijau.
-                -- Syarat: Hanya klik setiap 2 detik agar tidak spam/suara nyangkut.
-                if os.clock() - lastSwingTime > 2 then
-                    PhysicalClick(catchBtn)
-                    lastSwingTime = os.clock()
+            else
+                -- Jika tidak ada serangga di layar
+                if systemState == "IN_MINIGAME" then
+                    -- Minigame baru saja hilang = Tangkapan Berhasil!
+                    systemState = "IDLE"
+                    task.wait(0.5) -- Jeda sebentar agar tidak langsung menembak lagi
+                    
+                elseif systemState == "WAITING" then
+                    -- Failsafe: Jika sudah diklik tapi serangganya kabur/gak muncul
+                    if os.clock() - timeClicked > 3 then
+                        systemState = "IDLE" -- Reset setelah 3 detik
+                    end
+                    
+                elseif systemState == "IDLE" then
+                    -- Siap menangkap: Jika tombol hijau muncul, klik SEKALI SAJA
+                    if catchBtnFound then
+                        VirtualClick(catchBtnFound)
+                        systemState = "WAITING" -- Kunci sistem agar tidak spam klik
+                        timeClicked = os.clock()
+                    end
                 end
             end
             
@@ -299,7 +335,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     if autoFarmActive then
         ToggleBtn.Text = "AUTO FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
-        lastSwingTime = 0 -- Reset timer agar langsung mengayun
+        systemState = "IDLE" -- Reset status saat dinyalakan
     else
         ToggleBtn.Text = "AUTO FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
@@ -314,8 +350,15 @@ end)
 CloseBtn.MouseButton1Click:Connect(function()
     loopRunning = false 
     autoFarmActive = false
-    pcall(function() StarterGui:SetCore("SendNotification", {Title="Auto-Farm", Text="Script ditutup.", Duration=3}) end)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Auto-Farm",
+            Text = "Script ditutup.",
+            Icon = "rbxassetid://96528531592202",
+            Duration = 3,
+        })
+    end)
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v15 (Ultimate VIM Bypass) Aktif!")
+print("Tookimeki Auto-Farm v6 (1-Click Logic) Aktif!")
