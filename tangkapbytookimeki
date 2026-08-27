@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v3
+-- TOOKIMEKI AUTO-FARM SERANGGA v4
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -106,7 +106,7 @@ OpenBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 
 -- ==========================================
--- 2. SISTEM CUSTOM DRAG (Boundary Clamp)
+-- 2. SISTEM CUSTOM DRAG
 -- ==========================================
 local function MakeDraggable(guiObject)
     local dragging = false
@@ -120,9 +120,7 @@ local function MakeDraggable(guiObject)
             startPos = guiObject.Position 
             
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
@@ -179,18 +177,16 @@ local function MaximizeGUI()
         targetY = math.clamp(targetY, 55, viewport.Y - 55)
     end
     
-    local t1 = TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
-    t1:Play()
-    t1.Completed:Wait() 
+    TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)}):Play()
+    task.wait(0.3)
     
     OpenBtn.Visible = false
     MainFrame.Size = UDim2.new(0, 0, 0, 0)
     MainFrame.Position = UDim2.new(0, targetX, 0, targetY)
     MainFrame.Visible = true
     
-    local t2 = TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 300, 0, 110)})
-    t2:Play()
-    t2.Completed:Wait()
+    TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 300, 0, 110)}):Play()
+    task.wait(0.3)
     isAnimating = false
 end
 
@@ -204,21 +200,16 @@ local function MinimizeGUI()
     local safeY = math.clamp(mousePos.Y, 17.5, viewport.Y - 17.5)
     local targetPos = UDim2.new(0, safeX, 0, safeY)
     
-    local t1 = TweenService:Create(MainFrame, tweenInfo, {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = targetPos
-    })
-    t1:Play()
-    t1.Completed:Wait()
+    TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 0, 0, 0), Position = targetPos}):Play()
+    task.wait(0.3)
     
     MainFrame.Visible = false
     OpenBtn.Position = targetPos
     OpenBtn.Size = UDim2.new(0, 0, 0, 0)
     OpenBtn.Visible = true
     
-    local t2 = TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)})
-    t2:Play()
-    t2.Completed:Wait()
+    TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
+    task.wait(0.3)
     isAnimating = false
 end
 
@@ -244,34 +235,35 @@ end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 
 -- ==========================================
--- 4. LOGIKA AUTO-FARM (ACTIVE SCANNER)
+-- 4. LOGIKA AUTO-FARM (GLOBAL SCANNER)
 -- ==========================================
 local autoFarmActive = false
 local loopRunning = true
 
--- Peningkatan fungsi Virtual Clicker (Termasuk dukungan .Activated)
 local function VirtualClick(button)
     if not button then return end
     if getconnections then
-        for _, connection in pairs(getconnections(button.MouseButton1Click)) do
-            connection:Fire()
-        end
-        for _, connection in pairs(getconnections(button.MouseButton1Down)) do
-            connection:Fire()
-        end
-        for _, connection in pairs(getconnections(button.Activated)) do
-            connection:Fire()
-        end
+        for _, connection in pairs(getconnections(button.MouseButton1Click)) do connection:Fire() end
+        for _, connection in pairs(getconnections(button.MouseButton1Down)) do connection:Fire() end
+        for _, connection in pairs(getconnections(button.Activated)) do connection:Fire() end
     end
 end
 
--- LOOP UTAMA (Memindai layar 10 kali per detik)
+-- Daftar nama tombol yang akan dihajar oleh script
+local targetButtons = {
+    "CatchButton", -- Asumsi ini nama tombol hijaunya atau tombol pemicu minigame
+    "Dragonfly",
+    "Butterfly",
+    "Frog"
+}
+
+-- LOOP UTAMA
 task.spawn(function()
     while loopRunning do
-        task.wait(0.1) -- Fast Loop Scanner
+        task.wait(0.2) -- Loop berjalan 5x per detik (Cepat dan Anti-Lag)
         
         if autoFarmActive then
-            -- A. PASTIKAN JARING DIPEGANG
+            -- A. PASTIKAN JARING DIPEGANG TERUS
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -282,29 +274,18 @@ task.spawn(function()
                 end
             end
             
-            -- B. PINDAI SELURUH PLAYERGUI
+            -- B. SCAN GLOBAL SELURUH LAYAR (Mencari tombol hijau & minigame)
             for _, gui in pairs(PlayerGui:GetChildren()) do
-                
-                -- Deteksi CatchGui dan Tombol Hijau
-                if string.find(gui.Name, "CatchGui") then
-                    -- Cari secara mendalam (true) barangkali lokasinya bersarang
-                    local catchBtn = gui:FindFirstChild("CatchButton", true)
-                    -- Pastikan tombolnya ada dan sedang terlihat (Visible) di layar
-                    if catchBtn and catchBtn:IsA("GuiButton") and catchBtn.Visible then
-                        VirtualClick(catchBtn)
+                if gui:IsA("ScreenGui") and gui.Enabled then
+                    for _, targetName in ipairs(targetButtons) do
+                        -- Mencari secara mendalam (true) tanpa peduli nama foldernya
+                        local btn = gui:FindFirstChild(targetName, true)
+                        
+                        if btn and btn:IsA("GuiButton") and btn.Visible then
+                            VirtualClick(btn)
+                        end
                     end
                 end
-                
-                -- Deteksi MinigameGui
-                if string.find(gui.Name, "MinigameGui") then
-                    local insect = gui:FindFirstChild("Dragonfly", true) or 
-                                   gui:FindFirstChild("Butterfly", true) or 
-                                   gui:FindFirstChild("Frog", true)
-                    if insect and insect:IsA("GuiButton") and insect.Visible then
-                        VirtualClick(insect)
-                    end
-                end
-                
             end
         end
     end
@@ -327,12 +308,12 @@ ToggleBtn.MouseButton1Click:Connect(function()
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    loopRunning = false -- Memutus loop agar tidak memory leak
+    loopRunning = false 
     autoFarmActive = false
     pcall(function()
         StarterGui:SetCore("SendNotification", {
             Title = "Auto-Farm",
-            Text = "Script berhasil ditutup total.",
+            Text = "Script ditutup.",
             Icon = "rbxassetid://96528531592202",
             Duration = 3,
         })
@@ -340,4 +321,4 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("Tookimeki Auto-Farm v3 Aktif!")
+print("Tookimeki Auto-Farm v4 Aktif!")
