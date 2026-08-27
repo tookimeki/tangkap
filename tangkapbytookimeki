@@ -1,10 +1,13 @@
 -- ==========================================
--- TOOKIMEKI AUTO-FARM SERANGGA v1
+-- TOOKIMEKI AUTO-FARM SERANGGA v2
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -14,43 +17,77 @@ if CoreGui:FindFirstChild("TookimekiAutoFarm") then
     CoreGui.TookimekiAutoFarm:Destroy()
 end
 
--- 1. MEMBUAT GUI UTAMA
+-- ==========================================
+-- 1. MEMBANGUN UI PREMIUM (Style AFK v11)
+-- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TookimekiAutoFarm"
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 100)
-MainFrame.Position = UDim2.new(0.5, -125, 0.8, -50) -- Muncul di agak bawah layar
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Size = UDim2.new(0, 300, 0, 110)
+MainFrame.AnchorPoint = Vector2.new(1, 0.5) 
+MainFrame.Position = UDim2.new(0.5, 150, 0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+MainFrame.BackgroundTransparency = 0.1
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
+MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = MainFrame
+local Dot = Instance.new("Frame")
+Dot.Size = UDim2.new(0, 10, 0, 10)
+Dot.Position = UDim2.new(0, 15, 0, 15)
+Dot.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+Dot.Parent = MainFrame
+Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Size = UDim2.new(0, 200, 0, 20)
+Title.Position = UDim2.new(0, 35, 0, 10)
 Title.BackgroundTransparency = 1
 Title.Text = "Auto-Farm - by tookimeki"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
+Title.Font = Enum.Font.Gotham
 Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = MainFrame
 
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+CloseBtn.Position = UDim2.new(1, -30, 0, 10)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.Parent = MainFrame
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 20, 0, 20)
+MinBtn.Position = UDim2.new(1, -55, 0, 10)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 20
+MinBtn.Parent = MainFrame
+
 local Separator = Instance.new("Frame")
-Separator.Size = UDim2.new(1, -20, 0, 1)
-Separator.Position = UDim2.new(0, 10, 0, 30)
-Separator.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+Separator.Size = UDim2.new(1, -30, 0, 1)
+Separator.Position = UDim2.new(0, 15, 0, 40)
+Separator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Separator.BackgroundTransparency = 0.8
 Separator.BorderSizePixel = 0
 Separator.Parent = MainFrame
 
+-- Tombol Sakelar Utama
 local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0, 200, 0, 35)
-ToggleBtn.Position = UDim2.new(0.5, -100, 0, 45)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Default Merah (OFF)
+ToggleBtn.Size = UDim2.new(1, -40, 0, 40)
+ToggleBtn.Position = UDim2.new(0, 20, 0, 55)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 ToggleBtn.Text = "AUTO FARM: OFF"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.Font = Enum.Font.GothamBold
@@ -58,37 +95,163 @@ ToggleBtn.TextSize = 14
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
--- FUNGSI DRAG (Agar GUI bisa digeser)
+-- Logo Kecil Tookimeki
+local OpenBtn = Instance.new("ImageButton")
+OpenBtn.Size = UDim2.new(0, 0, 0, 0) 
+OpenBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+OpenBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+OpenBtn.BackgroundTransparency = 0.3 
+OpenBtn.Image = "rbxassetid://96528531592202" 
+OpenBtn.ImageTransparency = 0.1
+OpenBtn.Visible = false
+OpenBtn.Parent = ScreenGui
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
+
+-- ==========================================
+-- 2. SISTEM CUSTOM DRAG (Boundary Clamp)
+-- ==========================================
 local function MakeDraggable(guiObject)
-    local dragging, dragStart, startPos
+    local dragging = false
+    local dragInput, dragStart, startPos
 
     guiObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if guiObject == MainFrame and ToggleBtn.IsHovered then return end -- Hindari bentrok drag vs toggle
             dragging = true
             dragStart = input.Position
-            startPos = guiObject.Position
+            startPos = guiObject.Position 
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
-    guiObject.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+
+    guiObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
         end
     end)
+
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            local targetX = startPos.X.Offset + delta.X
+            local targetY = startPos.Y.Offset + delta.Y
+            
+            local viewport = workspace.CurrentCamera.ViewportSize
+            local apX, apY = guiObject.AnchorPoint.X, guiObject.AnchorPoint.Y
+            local sizeX, sizeY = guiObject.AbsoluteSize.X, guiObject.AbsoluteSize.Y
+            
+            local minX = sizeX * apX
+            local maxX = viewport.X - sizeX * (1 - apX)
+            local minY = sizeY * apY
+            local maxY = viewport.Y - sizeY * (1 - apY)
+            
+            if viewport.X > 0 and viewport.Y > 0 then
+                targetX = math.clamp(targetX, minX, maxX)
+                targetY = math.clamp(targetY, minY, maxY)
+            end
+            
+            guiObject.Position = UDim2.new(0, targetX, 0, targetY)
         end
     end)
 end
+
 MakeDraggable(MainFrame)
+MakeDraggable(OpenBtn)
 
 -- ==========================================
--- LOGIKA AUTO-FARM
+-- 3. ANIMASI MINIMIZE & MAXIMIZE
+-- ==========================================
+local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local isAnimating = false
+
+local function MaximizeGUI()
+    if isAnimating then return end
+    isAnimating = true
+
+    local targetX = OpenBtn.Position.X.Offset + 45
+    local targetY = OpenBtn.Position.Y.Offset + 50
+    local viewport = workspace.CurrentCamera.ViewportSize
+    if viewport.X > 0 and viewport.Y > 0 then
+        targetX = math.clamp(targetX, 300, viewport.X)
+        targetY = math.clamp(targetY, 55, viewport.Y - 55)
+    end
+    
+    local t1 = TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
+    t1:Play()
+    t1.Completed:Wait() 
+    
+    OpenBtn.Visible = false
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    MainFrame.Position = UDim2.new(0, targetX, 0, targetY)
+    MainFrame.Visible = true
+    
+    local t2 = TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 300, 0, 110)})
+    t2:Play()
+    t2.Completed:Wait()
+    isAnimating = false
+end
+
+local function MinimizeGUI()
+    if isAnimating then return end
+    isAnimating = true
+    
+    local mousePos = UserInputService:GetMouseLocation()
+    local viewport = workspace.CurrentCamera.ViewportSize
+    local safeX = math.clamp(mousePos.X, 17.5, viewport.X - 17.5) 
+    local safeY = math.clamp(mousePos.Y, 17.5, viewport.Y - 17.5)
+    local targetPos = UDim2.new(0, safeX, 0, safeY)
+    
+    local t1 = TweenService:Create(MainFrame, tweenInfo, {
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = targetPos
+    })
+    t1:Play()
+    t1.Completed:Wait()
+    
+    MainFrame.Visible = false
+    OpenBtn.Position = targetPos
+    OpenBtn.Size = UDim2.new(0, 0, 0, 0)
+    OpenBtn.Visible = true
+    
+    local t2 = TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)})
+    t2:Play()
+    t2.Completed:Wait()
+    isAnimating = false
+end
+
+local clickStart, clickPos
+OpenBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        clickStart = os.clock()
+        clickPos = input.Position
+    end
+end)
+OpenBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if clickStart and clickPos then
+            local delta = (input.Position - clickPos).Magnitude
+            if delta < 5 and (os.clock() - clickStart) < 0.5 then
+                task.spawn(MaximizeGUI)
+            end
+            clickStart, clickPos = nil, nil
+        end
+    end
+end)
+
+MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
+
+-- ==========================================
+-- 4. LOGIKA AUTO-FARM (FIXED CLICK)
 -- ==========================================
 local autoFarmActive = false
+local loopRunning = true
 
--- Fungsi Virtual Clicker (Mengeklik tombol GUI secara paksa)
 local function VirtualClick(button)
     if not button then return end
     if getconnections then
@@ -101,11 +264,9 @@ local function VirtualClick(button)
     end
 end
 
--- Sistem Radar: Memantau GUI Minigame
 PlayerGui.ChildAdded:Connect(function(gui)
-    if not autoFarmActive then return end -- Abaikan jika Auto-Farm sedang OFF
+    if not autoFarmActive then return end 
 
-    -- Deteksi CatchGui (Trigger Awal)
     if string.find(gui.Name, "CatchGui") then
         local catchBtn = gui:WaitForChild("CatchButton", 2)
         if catchBtn then
@@ -114,15 +275,12 @@ PlayerGui.ChildAdded:Connect(function(gui)
         end
     end
     
-    -- Deteksi MinigameGui (Capung, Kupu-kupu, Kodok)
     if string.find(gui.Name, "MinigameGui") then
         local gameArea = gui:WaitForChild("GameArea", 2)
         if gameArea then
-            -- Mencari tombol serangga berdasarkan tipe
             local insectBtn = gameArea:FindFirstChild("Dragonfly") or 
                               gameArea:FindFirstChild("Butterfly") or 
                               gameArea:FindFirstChild("Frog")
-                              
             if insectBtn then
                 task.wait(0.2)
                 VirtualClick(insectBtn)
@@ -131,54 +289,60 @@ PlayerGui.ChildAdded:Connect(function(gui)
     end
 end)
 
--- Loop Utama: Memegang dan Mengayunkan Jaring
+-- LOOP AYUNAN JARING MENGGUNAKAN VIRTUAL USER
 task.spawn(function()
-    while task.wait(0.5) do -- Eksekusi setiap setengah detik
+    while loopRunning do
+        task.wait(0.5) 
         if autoFarmActive then
             local character = LocalPlayer.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
-                
-                -- Mencari Jaring di tas atau yang sedang dipegang
                 local jaring = LocalPlayer.Backpack:FindFirstChild("Jaring") or character:FindFirstChild("Jaring")
                 
                 if jaring then
-                    -- Jika jaring belum dipegang, paksa untuk dipegang
                     if jaring.Parent ~= character then
                         humanoid:EquipTool(jaring)
-                        task.wait(0.2) -- Jeda sebentar agar animasi equip selesai
+                        task.wait(0.2) 
                     end
                     
-                    -- Ayunkan jaring secara otomatis
-                    jaring:Activate()
+                    -- BUKAN MENGGUNAKAN :Activate(), TAPI SIMULASI KLIK MOUSE ASLI
+                    VirtualUser:Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                    task.wait(0.1)
+                    VirtualUser:Button1Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
                 end
             end
         end
     end
 end)
 
--- ==========================================
--- LOGIKA TOMBOL TOGGLE
--- ==========================================
 ToggleBtn.MouseButton1Click:Connect(function()
-    autoFarmActive = not autoFarmActive -- Membalikkan status
-    
+    autoFarmActive = not autoFarmActive 
     if autoFarmActive then
         ToggleBtn.Text = "AUTO FARM: ON"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Berubah Hijau
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
     else
         ToggleBtn.Text = "AUTO FARM: OFF"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Berubah Merah
-        
-        -- Lepas jaring saat dimatikan (opsional)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
         local character = LocalPlayer.Character
         if character then
             local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid:UnequipTools()
-            end
+            if humanoid then humanoid:UnequipTools() end
         end
     end
 end)
 
-print("Sistem Tookimeki Auto-Farm Siap Digunakan!")
+CloseBtn.MouseButton1Click:Connect(function()
+    loopRunning = false -- Matikan loop ayunan jaring
+    autoFarmActive = false
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Auto-Farm",
+            Text = "Script berhasil ditutup total.",
+            Icon = "rbxassetid://96528531592202",
+            Duration = 3,
+        })
+    end)
+    ScreenGui:Destroy()
+end)
+
+print("Tookimeki Auto-Farm v2 Aktif!")
